@@ -1,0 +1,41 @@
+#!groovy
+
+STAGING_PPL = "PIPELINE-FULL-STAGING"
+PRODUCTION_PPL = "PIPELINE-FULL-PRODUCTION"
+
+pipeline {
+    agent any
+    options {
+        skipDefaultCheckout()
+    }
+    stages {
+        stage('Develop') {
+            steps {
+                withEnv(["ENVIRONMENT=staging"]) {
+                    build job: STAGING_PPL, wait: true
+                }
+            }
+        }
+        stage('Merge') {
+            steps {
+                checkout scm
+                sh """
+                git checkout develop
+                git pull --rebase
+                git checkout master
+                git pull --rebase
+                git merge develop
+                git push
+                """
+                deleteDir()
+            }
+        }
+        stage('Master') {
+            steps {
+                withEnv(["ENVIRONMENT=production"]) {
+                    build job: PRODUCTION_PPL, wait: true
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,20 @@
+version = 0.1
+[staging]
+[staging.deploy]
+[staging.deploy.parameters]
+stack_name = "todo-list-aws-staging"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-lxpeystpsv1l"
+s3_prefix = "todo-list-aws-staging"
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "Env=\"staging\" DynamoTable=\"todoTable\""
+
+[production]
+[production.deploy]
+[production.deploy.parameters]
+stack_name = "todo-list-aws-production"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-lxpeystpsv1l"
+s3_prefix = "todo-list-aws-production"
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "Env=\"production\" DynamoTable=\"todoTable\""

@@ -1,0 +1,191 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  todo-list-aws
+
+  Sample SAM Template for todo-list-aws
+
+Parameters:
+  Env:
+    Description: Environment name (Production, Staging...)
+    Type: String
+    Default: Local
+  DynamoTable:
+    Description: DynamoDB table name
+    Type: String
+    Default: todoTable
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Runtime: python3.8
+    CodeUri: src/
+    Timeout: 10
+    Environment:
+      Variables:
+        DYNAMODB_TABLE: !Sub "${DynamoTable}_${Env}"
+
+Resources:
+  TodoTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${DynamoTable}_${Env}"
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+  CreateFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      Handler: create.create
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:PutItem
+            Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:*:table/${DynamoTable}_${Env}"
+      Events:
+        Create:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /todos
+            Method: post
+  DeleteFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      Handler: delete.delete
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:DeleteItem
+            Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:*:table/${DynamoTable}_${Env}"
+      Events:
+        Delete:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /todos/{id}
+            Method: delete
+  GetFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      Handler: get.get
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+            Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:*:table/${DynamoTable}_${Env}"
+      Events:
+        Get:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /todos/{id}
+            Method: get
+  ListFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      Handler: list.list
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:Scan
+            Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:*:table/${DynamoTable}_${Env}"
+      Events:
+        List:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /todos
+            Method: get
+  TranslateFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      Handler: translate.translate
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:GetItem
+            Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:*:table/${DynamoTable}_${Env}"
+        - Statement:
+          - Effect: Allow
+            Action:
+              - comprehend:DetectDominantLanguage
+            Resource: "*"
+        - Statement:
+          - Effect: Allow
+            Action:
+              - translate:TranslateText
+            Resource: "*"
+      Events:
+        Translate:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /todos/{id}/{language}
+            Method: get
+  UpdateFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      Handler: update.update
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action:
+              - dynamodb:UpdateItem
+            Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:*:table/${DynamoTable}_${Env}"
+      Events:
+        Update:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /todos/{id}
+            Method: put
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  TodosApi:
+    Description: "API Gateway endpoint URL for Prod stage for todo-list-aws"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/todos/"
+  CreateFunction:
+    Description: "Create Lambda Function ARN"
+    Value: !GetAtt CreateFunction.Arn
+  CreateFunctionIamRole:
+    Description: "Implicit IAM Role created for Create function"
+    Value: !GetAtt CreateFunctionRole.Arn
+  ListFunction:
+    Description: "List Lambda Function ARN"
+    Value: !GetAtt ListFunction.Arn
+  ListFunctionIamRole:
+    Description: "Implicit IAM Role created for Create function"
+    Value: !GetAtt ListFunctionRole.Arn
+  GetFunction:
+    Description: "Get Lambda Function ARN"
+    Value: !GetAtt GetFunction.Arn
+  GetFunctionIamRole:
+    Description: "Implicit IAM Role created for Get function"
+    Value: !GetAtt GetFunctionRole.Arn
+  UpdateFunction:
+    Description: "Update Lambda Function ARN"
+    Value: !GetAtt UpdateFunction.Arn
+  UpdateFunctionIamRole:
+    Description: "Implicit IAM Role created for Update function"
+    Value: !GetAtt UpdateFunctionRole.Arn
+  DeleteFunction:
+    Description: "Delete Lambda Function ARN"
+    Value: !GetAtt DeleteFunction.Arn
+  DeleteFunctionIamRole:
+    Description: "Implicit IAM Role created for Delete function"
+    Value: !GetAtt DeleteFunctionRole.Arn
+  TranslateFunction:
+    Description: "Translate Lambda Function ARN"
+    Value: !GetAtt TranslateFunction.Arn
+  TranslateFunctionIamRole:
+    Description: "Implicit IAM Role created for Translate function"
+    Value: !GetAtt TranslateFunctionRole.Arn
